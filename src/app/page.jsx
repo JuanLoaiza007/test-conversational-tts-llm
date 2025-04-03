@@ -9,6 +9,7 @@ export default function Home() {
   const [listening, setListening] = useState(false);
   const [messages, setMessages] = useState([]);
   const recognitionRef = useRef(null);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -17,6 +18,7 @@ export default function Home() {
       alert("Lo siento, tu navegador no soporta Speech Recognition.");
       return;
     }
+
     const recognition = new SpeechRecognition();
     recognition.lang = "es-ES";
     recognition.continuous = false;
@@ -30,8 +32,7 @@ export default function Home() {
     recognition.onresult = (event) => {
       const result = event.results[0][0].transcript;
       console.log("Texto detectado:", result);
-      setMessages((prev) => [...prev, { text: result, sender: "user" }]);
-      process(result);
+      handleNewMessage(result, "user");
     };
 
     recognition.onspeechend = () => {
@@ -41,26 +42,68 @@ export default function Home() {
 
     recognition.onerror = (event) => {
       console.error("Error en el reconocimiento de voz:", event.error);
-      if (event.error === "network") {
-        alert(
-          "Error de red detectado. Verifica tu conexión a Internet y los permisos del navegador."
-        );
-      }
       setListening(false);
     };
 
     recognitionRef.current = recognition;
+
+    return () => {
+      recognitionRef.current?.stop();
+    };
   }, []);
+
+  const say = (text) => {
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "es-ES";
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const handleNewMessage = async (text, sender) => {
+    // Usamos una función de actualización para obtener el estado más reciente
+    setMessages((prev) => {
+      const newMessages = [...prev, { text, sender }];
+
+      // Solo procesamos la respuesta de Gemini si es un mensaje del usuario
+      // y no hay ya una respuesta en proceso
+      if (sender === "user" && !isProcessingRef.current) {
+        isProcessingRef.current = true;
+
+        // Llamamos a Gemini con el historial completo (newMessages)
+        request_gemini(newMessages)
+          .then((response) => {
+            // Verificamos que no se haya cancelado el procesamiento
+            if (!isProcessingRef.current) return;
+
+            // Actualizamos el estado con la respuesta
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { text: response, sender: "ai" },
+            ]);
+            say(response);
+          })
+          .catch((error) => {
+            console.error("Error al procesar la solicitud LLM:", error);
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { text: "Error al obtener respuesta de la IA.", sender: "ai" },
+            ]);
+          })
+          .finally(() => {
+            isProcessingRef.current = false;
+          });
+      }
+
+      return newMessages;
+    });
+  };
 
   const listen = () => {
     if (recognitionRef.current) {
       setListening(true);
       console.log("Iniciando reconocimiento de voz...");
-      try {
-        recognitionRef.current.start();
-      } catch (error) {
-        console.error("Error al iniciar reconocimiento:", error);
-      }
+      recognitionRef.current.start();
     }
   };
 
@@ -69,33 +112,6 @@ export default function Home() {
       setListening(false);
       console.log("Deteniendo reconocimiento de voz...");
       recognitionRef.current.stop();
-    }
-  };
-
-  const process = async (text) => {
-    try {
-      const data = await request_gemini(text);
-      setMessages((prev) => [
-        ...prev,
-        { text: data || "No se obtuvo respuesta.", sender: "ai" },
-      ]);
-      say(data);
-    } catch (error) {
-      console.error("Error al procesar la solicitud LLM:", error);
-      setMessages((prev) => [
-        ...prev,
-        { text: "Error al obtener respuesta de la IA.", sender: "ai" },
-      ]);
-    }
-  };
-
-  const say = (text) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "es-ES";
-      window.speechSynthesis.speak(utterance);
-    } else {
-      console.warn("El navegador no soporta Speech Synthesis.");
     }
   };
 
