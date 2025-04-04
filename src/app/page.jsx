@@ -4,9 +4,8 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import { request_gemini } from "@/utils/gemini";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Mic, MicOff } from "lucide-react";
+import ChatWindow from "@/app/_components/ChatWindow";
+import SpeechButton from "@/app/_components/SpeechButton";
 
 export default function Home() {
   const [messages, setMessages] = useState([]);
@@ -30,10 +29,8 @@ export default function Home() {
   useEffect(() => {
     console.log("Transcripción actual:", transcript);
     console.log("Estado de listening:", listening);
-
     if (!transcript.trim()) return;
-
-    // Procesar solo una vez cuando el usuario termine de hablar
+    // Procesa el mensaje solo cuando se haya detenido la escucha y aún no se haya procesado
     if (!isListening && listening && !hasProcessedRef.current) {
       hasProcessedRef.current = true;
       const userText = transcript.trim();
@@ -57,10 +54,8 @@ export default function Home() {
       const newMessages = [...prev, { text, sender }];
       if (sender === "user" && !isProcessingRef.current) {
         isProcessingRef.current = true;
-
         request_gemini(newMessages)
           .then((response) => {
-            if (!isProcessingRef.current) return;
             console.log("Respuesta IA:", response);
             setMessages((prevMessages) => [
               ...prevMessages,
@@ -95,7 +90,7 @@ export default function Home() {
       resetTranscript();
       SpeechRecognition.startListening({
         language: "es-ES",
-        continuous: false,
+        continuous: false, // Se detiene automáticamente al dejar de hablar
         interimResults: false,
       });
       setListening(true);
@@ -104,30 +99,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
-      <Card className="w-full max-w-md p-4 bg-white shadow-md rounded-lg flex flex-col gap-2 h-[500px] overflow-y-auto">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`p-3 rounded-lg max-w-[75%] ${
-              msg.sender === "user"
-                ? "bg-blue-500 text-white self-end"
-                : "bg-gray-200 text-black self-start"
-            }`}
-          >
-            {msg.text}
-          </div>
-        ))}
-      </Card>
-      <Button
-        onClick={handleListenClick}
-        className="mt-4 p-4 rounded-full shadow-md flex items-center justify-center"
-      >
-        {listening ? (
-          <MicOff className="w-6 h-6 text-red-500" />
-        ) : (
-          <Mic className="w-6 h-6 text-green-500" />
-        )}
-      </Button>
+      <ChatWindow messages={messages} />
+      <SpeechButton listening={listening} onClick={handleListenClick} />
     </div>
   );
 }
