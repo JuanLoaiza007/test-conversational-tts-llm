@@ -1,39 +1,25 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+
+import { useState } from "react";
 import { Speaker, Loader2 } from "lucide-react";
-import {
-  generateAudioFromText,
-  createAudioURL,
-  downloadAudio,
-} from "@/utils/elevenlabs-tts";
+import useSpeechFlow from "@/utils/speech-flow";
+import { getSpeechServices } from "@/utils/speech-services";
 
 export default function TTSComponent() {
   const [text, setText] = useState("");
-  const [audioURL, setAudioURL] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const audioRef = useRef(null); // Referencia al elemento de audio
 
-  // Efecto para reproducir el audio automáticamente cuando cambia la URL
-  useEffect(() => {
-    if (audioRef.current && audioURL) {
-      // Reproduce el audio apenas esté disponible
-      audioRef.current.play().catch((error) => {
-        console.error("Error al reproducir el audio:", error);
-      });
-    }
-  }, [audioURL]);
+  const { speak } = useSpeechFlow({
+    onTextDetected: () => {},
+    ...getSpeechServices({ useSTT: false }),
+  });
 
-  // Maneja el flujo: generar audio, crear URL y reproducirlo
   const handleGenerateAndPlayAudio = async () => {
     setIsLoading(true);
-
     try {
-      const audioBlob = await generateAudioFromText(text);
-      const url = createAudioURL(audioBlob);
-      setAudioURL(url);
-      // downloadAudio(url);
+      await speak(text);
     } catch (error) {
-      console.error("Error al generar audio:", error);
+      console.error("Error al reproducir el audio:", error);
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +33,6 @@ export default function TTSComponent() {
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows="4"
-        cols="50"
         placeholder="Escribe tu texto aquí..."
         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
@@ -64,15 +49,6 @@ export default function TTSComponent() {
         )}
         {isLoading ? "Generando..." : "Generar Voz"}
       </button>
-
-      {audioURL && (
-        <audio
-          ref={audioRef}
-          controls
-          src={audioURL}
-          className="mt-4 w-full rounded-md border border-gray-300"
-        />
-      )}
     </div>
   );
 }
