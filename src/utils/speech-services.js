@@ -3,7 +3,7 @@ import { browserTTS } from "@/utils/browser-tts";
 import { useElevenLabsSTT } from "@/utils/elevenlabs-stt";
 import { elevenLabsTTS } from "@/utils/elevenlabs-tts";
 
-const defaultSTT = useElevenLabsSTT;
+const defaultSTT = useBrowserSTT;
 const defaultTTS = browserTTS;
 
 export const getSpeechServices = ({ useSTT = true } = {}) => {

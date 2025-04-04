@@ -1,20 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSpeechServices } from "@/utils/speech-services";
 import useSpeechFlow from "@/utils/speech-flow";
 import { Mic, StopCircle, RefreshCw } from "lucide-react";
 
 export default function STTTester() {
   const [detectedText, setDetectedText] = useState("");
-
   const { stt, tts } = getSpeechServices();
 
   const { transcript, listening, shouldAlert, listen, stop, reset } =
     useSpeechFlow({
       stt,
       tts,
-      onTextDetected: (text) => setDetectedText(text),
+      onTextDetected: () => {},
     });
+
+  useEffect(() => {
+    setDetectedText(transcript);
+  }, [transcript]);
 
   return (
     <div className="max-w-xl mx-auto mt-10 p-4 border rounded-2xl shadow-md bg-white">
