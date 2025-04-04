@@ -1,56 +1,48 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import SpeechRecognition, {
+  useSpeechRecognition,
+} from "react-speech-recognition";
 import { request_gemini } from "@/utils/gemini";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mic, MicOff } from "lucide-react";
 
 export default function Home() {
-  const [listening, setListening] = useState(false);
   const [messages, setMessages] = useState([]);
-  const recognitionRef = useRef(null);
+  const [listening, setListening] = useState(false);
   const isProcessingRef = useRef(false);
+  const hasProcessedRef = useRef(false);
+
+  const {
+    transcript,
+    listening: isListening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition();
 
   useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    if (!browserSupportsSpeechRecognition) {
       alert("Lo siento, tu navegador no soporta Speech Recognition.");
-      return;
     }
+  }, [browserSupportsSpeechRecognition]);
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "es-ES";
-    recognition.continuous = false;
-    recognition.interimResults = false;
+  useEffect(() => {
+    console.log("Transcripción actual:", transcript);
+    console.log("Estado de listening:", listening);
 
-    recognition.onstart = () => {
-      console.log("Reconocimiento de voz iniciado");
-      window.speechSynthesis.cancel();
-    };
+    if (!transcript.trim()) return;
 
-    recognition.onresult = (event) => {
-      const result = event.results[0][0].transcript;
-      console.log("Texto detectado:", result);
-      handleNewMessage(result, "user");
-    };
-
-    recognition.onspeechend = () => {
-      console.log("Detección de voz finalizada");
+    // Procesar solo una vez cuando el usuario termine de hablar
+    if (!isListening && listening && !hasProcessedRef.current) {
+      hasProcessedRef.current = true;
+      const userText = transcript.trim();
+      console.log("Texto detectado correctamente:", userText);
+      resetTranscript();
       setListening(false);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Error en el reconocimiento de voz:", event.error);
-      setListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      recognitionRef.current?.stop();
-    };
-  }, []);
+      handleNewMessage(userText, "user");
+    }
+  }, [isListening, transcript]);
 
   const say = (text) => {
     if ("speechSynthesis" in window) {
@@ -61,22 +53,15 @@ export default function Home() {
   };
 
   const handleNewMessage = async (text, sender) => {
-    // Usamos una función de actualización para obtener el estado más reciente
     setMessages((prev) => {
       const newMessages = [...prev, { text, sender }];
-
-      // Solo procesamos la respuesta de Gemini si es un mensaje del usuario
-      // y no hay ya una respuesta en proceso
       if (sender === "user" && !isProcessingRef.current) {
         isProcessingRef.current = true;
 
-        // Llamamos a Gemini con el historial completo (newMessages)
         request_gemini(newMessages)
           .then((response) => {
-            // Verificamos que no se haya cancelado el procesamiento
             if (!isProcessingRef.current) return;
-
-            // Actualizamos el estado con la respuesta
+            console.log("Respuesta IA:", response);
             setMessages((prevMessages) => [
               ...prevMessages,
               { text: response, sender: "ai" },
@@ -94,24 +79,26 @@ export default function Home() {
             isProcessingRef.current = false;
           });
       }
-
       return newMessages;
     });
   };
 
-  const listen = () => {
-    if (recognitionRef.current) {
-      setListening(true);
-      console.log("Iniciando reconocimiento de voz...");
-      recognitionRef.current.start();
-    }
-  };
-
-  const stopListening = () => {
-    if (recognitionRef.current) {
+  const handleListenClick = () => {
+    if (listening) {
+      console.log("Deteniendo escucha...");
+      SpeechRecognition.stopListening();
       setListening(false);
-      console.log("Deteniendo reconocimiento de voz...");
-      recognitionRef.current.stop();
+    } else {
+      console.log("Iniciando escucha...");
+      window.speechSynthesis.cancel();
+      hasProcessedRef.current = false;
+      resetTranscript();
+      SpeechRecognition.startListening({
+        language: "es-ES",
+        continuous: false,
+        interimResults: false,
+      });
+      setListening(true);
     }
   };
 
@@ -132,7 +119,7 @@ export default function Home() {
         ))}
       </Card>
       <Button
-        onClick={listening ? stopListening : listen}
+        onClick={handleListenClick}
         className="mt-4 p-4 rounded-full shadow-md flex items-center justify-center"
       >
         {listening ? (
