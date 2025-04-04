@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  useBrowserSTT,
-  startBrowserSTT,
-  stopBrowserSTT,
-} from "@/utils/browser-stt";
-import { browserTTS, cancelBrowserTTS } from "@/utils/browser-tts";
 
-export default function useSpeechFlow({ onTextDetected }) {
+export default function useSpeechFlow({ onTextDetected, stt, tts }) {
   const [shouldProcess, setShouldProcess] = useState(false);
   const [shouldAlert, setShouldAlert] = useState(false);
   const hasProcessedRef = useRef(false);
@@ -15,14 +9,16 @@ export default function useSpeechFlow({ onTextDetected }) {
     transcript,
     listening,
     resetTranscript,
-    browserSupportsSpeechRecognition,
-  } = useBrowserSTT();
+    supportsSpeechRecognition,
+    start,
+    stop,
+  } = stt();
 
   useEffect(() => {
-    if (!browserSupportsSpeechRecognition) {
+    if (!supportsSpeechRecognition) {
       setShouldAlert(true);
     }
-  }, [browserSupportsSpeechRecognition]);
+  }, [supportsSpeechRecognition]);
 
   useEffect(() => {
     if (!transcript.trim()) return;
@@ -36,14 +32,14 @@ export default function useSpeechFlow({ onTextDetected }) {
   }, [listening, transcript]);
 
   const listen = () => {
-    cancelBrowserTTS();
+    tts.cancel();
     hasProcessedRef.current = false;
     resetTranscript();
-    startBrowserSTT();
+    start();
   };
 
-  const stop = () => {
-    stopBrowserSTT();
+  const stopListening = () => {
+    stop();
   };
 
   const reset = () => {
@@ -52,15 +48,16 @@ export default function useSpeechFlow({ onTextDetected }) {
   };
 
   const speak = (text) => {
-    browserTTS(text);
+    tts.speak(text);
   };
 
   return {
     shouldAlert,
     shouldProcess,
     transcript,
+    listening,
     listen,
-    stop,
+    stop: stopListening,
     reset,
     speak,
   };

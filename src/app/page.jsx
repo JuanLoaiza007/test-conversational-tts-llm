@@ -1,65 +1,66 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useRef, useState } from "react";
 import useSpeechFlow from "@/utils/speech-flow";
+import { getSpeechServices } from "@/utils/speech-services";
+import { request_gemini } from "@/utils/gemini";
 import ChatWindow from "@/app/_components/ChatWindow";
 import SpeechButton from "@/app/_components/SpeechButton";
 
 export default function Home() {
   const [messages, setMessages] = useState([]);
-  const [listening, setListening] = useState(false);
+  const isProcessingRef = useRef(false);
 
-  const { shouldAlert, shouldProcess, transcript, listen, stop, reset, speak } =
-    useSpeechFlow({
-      onTextDetected: (text) => handleNewMessage(text, "user"),
-    });
+  const { stt, tts } = getSpeechServices();
 
-  useEffect(() => {
-    if (shouldAlert)
-      alert("Lo siento, tu navegador no soporta Speech Recognition.");
-  }, [shouldAlert]);
+  const handleTextDetected = async (userText) => {
+    setMessages((prev) => [...prev, { text: userText, sender: "user" }]);
 
-  useEffect(() => {
-    if (shouldProcess && transcript.trim()) {
-      stop();
-      reset();
-      setListening(false);
-    }
-  }, [shouldProcess, transcript, stop, reset]);
+    if (!isProcessingRef.current) {
+      isProcessingRef.current = true;
 
-  const handleNewMessage = async (text, sender) => {
-    setMessages((prev) => [...prev, { text, sender }]);
-
-    if (sender === "user") {
       try {
-        const { request_gemini } = await import("@/utils/gemini");
-        const response = await request_gemini([...messages, { text, sender }]);
+        const response = await request_gemini([
+          ...messages,
+          { text: userText, sender: "user" },
+        ]);
         setMessages((prev) => [...prev, { text: response, sender: "ai" }]);
-        speak(response);
-      } catch (error) {
-        console.error("Error al procesar la solicitud LLM:", error);
+        speech.speak(response);
+      } catch (err) {
+        console.error("Error:", err);
         setMessages((prev) => [
           ...prev,
           { text: "Error al obtener respuesta de la IA.", sender: "ai" },
         ]);
+      } finally {
+        isProcessingRef.current = false;
+        speech.reset();
       }
     }
   };
 
+  const speech = useSpeechFlow({
+    onTextDetected: handleTextDetected,
+    stt,
+    tts,
+  });
+
   const handleListenClick = () => {
-    if (listening) {
-      stop();
-      setListening(false);
+    if (speech.listening) {
+      speech.stop();
     } else {
-      reset();
-      listen();
-      setListening(true);
+      speech.listen();
     }
   };
+
+  if (speech.shouldAlert) {
+    alert("Lo siento, tu navegador no soporta Speech Recognition.");
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
       <ChatWindow messages={messages} />
-      <SpeechButton listening={listening} onClick={handleListenClick} />
+      <SpeechButton listening={speech.listening} onClick={handleListenClick} />
     </div>
   );
 }

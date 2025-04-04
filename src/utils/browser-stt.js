@@ -2,18 +2,25 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 
-export const startBrowserSTT = (language = "es-ES") => {
-  SpeechRecognition.startListening({
-    language,
-    continuous: false,
-    interimResults: false,
-  });
-};
-
-export const stopBrowserSTT = () => {
-  SpeechRecognition.stopListening();
-};
-
 export const useBrowserSTT = () => {
-  return useSpeechRecognition();
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition();
+
+  return {
+    transcript,
+    listening,
+    resetTranscript,
+    supportsSpeechRecognition: browserSupportsSpeechRecognition,
+    start: () =>
+      SpeechRecognition.startListening({
+        language: "es-ES",
+        continuous: false,
+        interimResults: false,
+      }),
+    stop: () => SpeechRecognition.stopListening(),
+  };
 };
