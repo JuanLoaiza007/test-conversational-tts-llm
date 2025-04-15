@@ -6,6 +6,8 @@ const client = new ElevenLabsClient({
 
 const voiceId = "JBFqnCBsd6RMkjVDRZzb";
 
+let curretAudio = null;
+
 const decodeBase64Audio = (base64) => {
   const binaryString = atob(base64);
   const byteArray = new Uint8Array(binaryString.length);
@@ -51,5 +53,11 @@ export const elevenLabsTTS = {
     const audio = new Audio(createAudioURL(blob));
     await audio.play();
   },
-  cancel: () => {},
+  cancel: () => {
+    if (curretAudio) {
+      curretAudio.pause();
+      curretAudio.currentTime = 0;
+      curretAudio = null;
+    }
+  },
 };
