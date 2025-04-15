@@ -9,7 +9,7 @@ export default function TTSComponent() {
   const [text, setText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { speak } = useSpeechFlow({
+  const { speak, cancel } = useSpeechFlow({
     onTextDetected: () => {},
     ...getSpeechServices({ useSTT: false }),
   });
@@ -23,6 +23,10 @@ export default function TTSComponent() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleStopListening = () => {
+    cancel();
   };
 
   return (
@@ -48,6 +52,13 @@ export default function TTSComponent() {
           <Speaker className="mr-2 h-5 w-5" />
         )}
         {isLoading ? "Generando..." : "Generar Voz"}
+      </button>
+
+      <button
+        onClick={handleStopListening}
+        className="mt-4 px-4 py-2 flex items-center justify-center bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+        >
+          Detener Voz
       </button>
     </div>
   );
