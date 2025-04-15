@@ -51,6 +51,10 @@ export default function useSpeechFlow({ onTextDetected, stt, tts }) {
     tts.speak(text);
   };
 
+  const cancel = () => {
+    tts.cancel();
+  };
+
   return {
     shouldAlert,
     shouldProcess,
@@ -60,5 +64,6 @@ export default function useSpeechFlow({ onTextDetected, stt, tts }) {
     stop: stopListening,
     reset,
     speak,
+    cancel
   };
 }
